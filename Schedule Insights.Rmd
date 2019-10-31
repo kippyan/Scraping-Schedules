@@ -1,0 +1,73 @@
+---
+  title: "Schedule Insights"
+  author: "Olivia Lund"
+  output: html_document
+  df_print: paged
+---
+
+The objective of this project is to load data from the schedules of the computer science classes next semester, Spring of 2020.
+We begin by collecting our tools, using a function that will prevent us from duplicating them:
+```{R, results='hide', message=FALSE}
+  include <- function(library_name){
+    if( !(library_name %in% installed.packages()) )
+      install.packages(library_name) 
+    library(library_name, character.only=TRUE)
+  }
+include("rvest")
+include("tidyr")
+include("rvest")
+```
+
+
+Next we have to load the html code of the website that we are scraping the data from:
+```{R}
+my_url <- "http://ems.csuchico.edu/APSS/schedule/spr2020/CSCI.shtml"
+my_html <- read_html(my_url)
+```
+Unfortunately, this only reads a limited amount of data, but the 1 this is enough for some cursory analysis.
+
+```{R}
+class_number   <- my_html %>% html_nodes("td.reg_num")    %>% html_text()
+section_number <- my_html %>% html_nodes("td.sect")       %>% html_text()
+title          <- my_html %>% html_nodes("td.title")      %>% html_text() 
+instructor     <- my_html %>% html_nodes("td.Instructor") %>% html_text() 
+enrollment     <- my_html %>% html_nodes("td.seatsavail") %>% html_text()
+
+schedules <-tibble(class_number = class_number, section_number = section_number, title = title, instructor = instructor, enrollment = enrollment)
+schedules
+```
+As this data printout shows, this scraping approach is effective. There are some issues with void class number cells, but the table will work correctly provided that no sorting is done. This could be corrected by looping through the table and copying into each empty cell the contents of the cell above it.
+
+
+Our scraping procedure, which we have just proven is functional, would be a lot more useful if it were generalized into a scraping function:
+```{R}
+read_class_schedule <- function(schedule_url){
+  schedule_html <- read_html(schedule_url)
+  class_number   <- schedule_html %>% html_nodes("td.reg_num")    %>% html_text()
+  section_number <- schedule_html %>% html_nodes("td.sect")       %>% html_text()
+  title          <- schedule_html %>% html_nodes("td.title")      %>% html_text() 
+  instructor     <- schedule_html %>% html_nodes("td.Instructor") %>% html_text() 
+  enrollment     <- schedule_html %>% html_nodes("td.seatsavail") %>% html_text()
+  aschedule <- tibble(class_number = class_number, section_number = section_number, title = title, instructor = instructor, enrollment = enrollment)
+  return(aschedule)
+}
+```
+
+
+And to prove this, we can call this function to produce to produce table for several different schedules:
+```{R}
+CSCI2019 = read_class_schedule("http://ems.csuchico.edu/APSS/schedule/spr2019/CSCI.shtml")
+CSCI2020 = read_class_schedule("http://ems.csuchico.edu/APSS/schedule/spr2020/CSCI.shtml")
+MATH2019 = read_class_schedule("http://ems.csuchico.edu/APSS/schedule/spr2019/MATH.shtml")
+MATH2020 = read_class_schedule("http://ems.csuchico.edu/APSS/schedule/spr2020/MATH.shtml")
+```
+
+
+And to make things neater, we can aggregate all this data into one single table:
+```{R}
+do.call(rbind, list(CSCI2019, CSCI2020, MATH2019, MATH2020))
+```
+
+In conclusion, as demonstrated in this document, scraping is far from as unpleasant as it sounds.
+
+
